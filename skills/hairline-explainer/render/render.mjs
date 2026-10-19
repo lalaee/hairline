@@ -106,6 +106,11 @@ const SUBS = [
   [46.4, 48.5, "The matte finish just hides it better."],
   [49.4, 55.1, "Thin glass, sliding layers, a flat hinge. Not magic — engineered."],
 ];
+/** 9:16 shows bigger subtitles in a narrower column, so the two longest lines are split at their pause into chunks of their own. */
+if (VERT) SUBS.splice(SUBS.findIndex(([a]) => a === 25.3), 1,
+  [25.3, 27.6, "A titanium plate sits underneath,"], [28.0, 32.2, "and a hinge of more than a hundred parts holds the centre flat when open."]);
+if (VERT) SUBS.splice(SUBS.findIndex(([a]) => a === 41.1), 1,
+  [41.1, 43.7, "So if you try one in store, tilt it under the lights."], [44.05, 45.8, "The crease is reduced, not gone."]);
 const RECAP = `<span class=it>Thin glass</span><span class=it>Sliding layers</span><span class=it>A flat hinge</span><span class=it style="margin-top:18px;font-weight:600;color:#16181d">Not magic. Engineered.</span>`;
 /** Kicker and headline from each time on. No middle dots and no numbering in kickers. */
 const HEADS = [

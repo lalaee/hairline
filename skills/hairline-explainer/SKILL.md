@@ -6,7 +6,7 @@ argument-hint: "[subject] [narration.mp3]"
 
 # Hairline: explainer videos
 
-This skill turns a Hairline figure into a narrated explainer video. The reference result is `assets/iphone-duo-narrated.mp4` (16:9) and `assets/iphone-duo-reels.mp4` (9:16): a 56-second explainer of how the iPhone Duo's glass folds, with a voice-over, timed scenes, subtitles and a music bed. Everything here rebuilds those two files exactly, and is the starting point for the next video.
+This skill turns a Hairline figure into a narrated explainer video. The reference result is `assets/iphone-duo-narrated.mp4` (16:9) and `assets/iphone-duo-reels.mp4` (9:16), each also as `-voice-only.mp4` without the music bed: a 56-second explainer of how the iPhone Duo's glass folds, with a voice-over, timed scenes, subtitles and a music bed. Everything here rebuilds those two files exactly, and is the starting point for the next video.
 
 Every path below is relative to this folder. Frames and bundles go to a temp folder, never the repo. Only finished videos go in `assets/`.
 
@@ -42,6 +42,11 @@ python3 -I audio/clean.py example/narration-paced.mp3 $W/voice.wav --cut 11.60:1
 python3 -I audio/music.py $W/voice.wav $W/mix.wav 54.75          # last arg: when the final chord lands ("Engineered")
 node render/render.mjs        --audio=$W/mix.wav --out=../../assets/iphone-duo-narrated.mp4
 node render/render.mjs --vert --audio=$W/mix.wav --out=../../assets/iphone-duo-reels.mp4
+# the same pictures without the music bed: swap the soundtrack, padded to the video's full length
+for v in narrated reels; do
+  ffmpeg -y -i ../../assets/iphone-duo-$v.mp4 -i $W/voice.wav -map 0:v -map 1:a -c:v copy \
+    -af apad -c:a aac -b:a 192k -ac 2 -t 56.266667 -movflags +faststart ../../assets/iphone-duo-$v-voice-only.mp4
+done
 ```
 
 Each render takes a few minutes, one screenshot per frame. `--only=3,9.5,27` renders just those seconds, which is how to preview.
@@ -110,7 +115,7 @@ On the reference video, `jumps` found two cuts nobody had spotted yet: subtitles
 
 ### 8. 16:9 and 9:16
 
-`--vert` renders the same timeline in `page.html`'s vertical layout: laid out at 540 × 960, captured at 2× for 1080 × 1920, so hairlines stay legible on a phone. Reels, TikTok and Shorts cover the top bar, a button column on the right and the caption at the bottom. Check every scene with `frames.py safe`. On the reference video, the glued stack reached into the button column and the "10+ layers" label was clipped; both were fixed by moving the drawing inward when `V` is set. Clear the button column with equal margins on both sides, not by shifting things left: subtitles and diagrams stay on the frame's centre line. An off-centre subtitle was the next thing the person noticed.
+`--vert` renders the same timeline in `page.html`'s vertical layout: laid out at 540 × 960, captured at 2× for 1080 × 1920, so hairlines stay legible on a phone. Reels, TikTok and Shorts cover the top bar, a button column on the right and the caption at the bottom. Check every scene with `frames.py safe`. On the reference video, the glued stack reached into the button column and the "10+ layers" label was clipped; both were fixed by moving the drawing inward when `V` is set. Clear the button column with equal margins on both sides, not by shifting things left: subtitles and diagrams stay on the frame's centre line. An off-centre subtitle was the next thing the person noticed. Subtitles in 9:16 are big (23 px at 540 wide, 46 px in the video) and three lines at most: split a longer line at its pause into chunks of its own, timed to the words (`if (VERT) SUBS.splice(...)` in `render.mjs`), and keep the picture clear of the tallest chunk.
 
 ### 9. Deliver
 
