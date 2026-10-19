@@ -110,7 +110,7 @@ On the reference video, `jumps` found two cuts nobody had spotted yet: subtitles
 
 ### 8. 16:9 and 9:16
 
-`--vert` renders the same timeline in `page.html`'s vertical layout: laid out at 540 × 960, captured at 2× for 1080 × 1920, so hairlines stay legible on a phone. Reels, TikTok and Shorts cover the top bar, a button column on the right and the caption at the bottom. Check every scene with `frames.py safe`. On the reference video, the glued stack reached into the button column and the "10+ layers" label was clipped; both were fixed by moving the drawing inward when `V` is set.
+`--vert` renders the same timeline in `page.html`'s vertical layout: laid out at 540 × 960, captured at 2× for 1080 × 1920, so hairlines stay legible on a phone. Reels, TikTok and Shorts cover the top bar, a button column on the right and the caption at the bottom. Check every scene with `frames.py safe`. On the reference video, the glued stack reached into the button column and the "10+ layers" label was clipped; both were fixed by moving the drawing inward when `V` is set. Clear the button column with equal margins on both sides, not by shifting things left: subtitles and diagrams stay on the frame's centre line. An off-centre subtitle was the next thing the person noticed.
 
 ### 9. Deliver
 

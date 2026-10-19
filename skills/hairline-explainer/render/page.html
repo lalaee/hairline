@@ -26,9 +26,10 @@
   html.v #kicker { font-size:12px }
   html.v #title { font-size:33px; margin-top:8px }
   html.v #body { font-size:17px; line-height:1.5; margin-top:12px }
-  html.v #f, html.v #lab { left:14px; top:286px; width:500px; height:400px }
+  html.v #f, html.v #lab { left:20px; top:286px; width:500px; height:400px }
   html.v #lab text { font-size:20px }
-  html.v #sub { left:30px; right:76px; bottom:226px; font-size:18px; line-height:1.45 }
+  /* equal margins, so the subtitle sits on the frame's centre line; 76px clears the button column */
+  html.v #sub { left:76px; right:76px; bottom:226px; font-size:18px; line-height:1.45 }
   html.v #sub span { padding:3px 9px }
   html.v #brand { left:36px; right:auto; top:106px; font-size:10px }
   html.v #cursor { width:18px; height:18px; margin:-9px 0 0 -9px }
@@ -141,7 +142,7 @@ function drawThick(s) {
 }
 
 function drawPaper(s) {
-  const V = document.documentElement.classList.contains("v"), PX = V ? 140 : 160, GX = V ? 410 : 470;
+  const V = document.documentElement.classList.contains("v"), PX = V ? 182 : 160, GX = V ? 443 : 470; // 9:16: centred on the frame, the glued stack clear of the button column
   const kappa = s.k / 110;
   const pages = 10, t = 2.6, gap = 0.9, total = pages * t + (pages - 1) * gap;
   // the paperback: pages slide
