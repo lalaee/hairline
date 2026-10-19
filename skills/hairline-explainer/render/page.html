@@ -1,0 +1,198 @@
+<!doctype html><meta charset=utf-8>
+<style>
+  :root { --ink:#16181d; --mute:#8a8f98; --line:#e6e7ea; }
+  * { box-sizing:border-box; margin:0 }
+  html,body { width:1280px; height:720px; overflow:hidden; background:#fff; font-family:Inter, sans-serif; color:var(--ink) }
+  #f, #lab { position:absolute; left:40px; top:70px; width:625px; height:500px }
+  #lab { pointer-events:none; opacity:0 }
+  #lab path, #lab rect { vector-effect:non-scaling-stroke; stroke-linejoin:round; stroke-linecap:round }
+  #lab text { font-family:Inter, sans-serif; font-size:15px; fill:var(--mute) }
+  #panel { position:absolute; left:720px; top:60px; width:500px; height:520px; display:flex; flex-direction:column; justify-content:center }
+  #kicker { font-size:15px; letter-spacing:.14em; text-transform:uppercase; color:var(--mute); font-weight:500 }
+  #title { font-family:"Inter Display", Inter; font-size:46px; line-height:1.08; font-weight:600; letter-spacing:-.02em; margin-top:14px }
+  #body { font-size:22px; line-height:1.55; color:#3a3e46; margin-top:20px }
+  #body .it { display:block; opacity:0 }
+  #cap { opacity:0 }
+  #sub { position:absolute; left:90px; right:90px; bottom:46px; text-align:center; font-size:23px; line-height:1.4; color:var(--ink); opacity:0 }
+  #sub span { background:#f3f4f6; padding:4px 12px; border-radius:6px; box-decoration-break:clone; -webkit-box-decoration-break:clone }
+  #cursor { position:absolute; width:22px; height:22px; margin:-11px 0 0 -11px; border-radius:50%; border:2px solid #2563eb; background:rgba(37,99,235,.12); pointer-events:none; opacity:0 }
+  #brand { position:absolute; right:48px; top:28px; font-size:13px; color:var(--mute) }
+  /* the glare band on the Duo's display */
+  [data-hairline] svg path.glare { fill:rgba(120,130,150,.13); stroke:none }
+  /* 9:16 for Reels: laid out at 540 × 960 and captured at 2×. Reels covers the top ~125px, the bottom ~240px
+     (caption, audio) and a column ~70px wide on the right (buttons), so everything stays inside those. */
+  html.v, html.v body { width:540px; height:960px }
+  html.v #panel { left:36px; top:128px; width:420px; height:auto; display:block }
+  html.v #kicker { font-size:12px }
+  html.v #title { font-size:33px; margin-top:8px }
+  html.v #body { font-size:17px; line-height:1.5; margin-top:12px }
+  html.v #f, html.v #lab { left:14px; top:286px; width:500px; height:400px }
+  html.v #lab text { font-size:20px }
+  html.v #sub { left:30px; right:76px; bottom:226px; font-size:18px; line-height:1.45 }
+  html.v #sub span { padding:3px 9px }
+  html.v #brand { left:36px; right:auto; top:106px; font-size:10px }
+  html.v #cursor { width:18px; height:18px; margin:-9px 0 0 -9px }
+</style>
+<script>if (location.search.includes("v")) document.documentElement.classList.add("v");</script>
+<div id=f></div>
+<svg id=lab viewBox="0 0 625 500"></svg>
+<div id=panel><div id=cap><div id=kicker></div><div id=title></div><div id=body></div></div></div>
+<div id=sub><span></span></div>
+<div id=brand>Illustration, not to scale</div>
+<div id=cursor></div>
+<script type=module>
+import { duo } from "./duo.js";
+window.fig = duo(document.getElementById("f"), { onState: (s) => { window.st = s; } });
+const cur = document.getElementById("cursor");
+addEventListener("pointermove", (e) => { cur.style.left = e.clientX + "px"; cur.style.top = e.clientY + "px"; });
+
+/* ---------- the side-on diagrams ---------- */
+const NS = "http://www.w3.org/2000/svg", lab = document.getElementById("lab");
+const C = { plate: "#ffffff", hi: "#232327", edge: "#a4a4ac", mid: "#c3c3c9", lo: "#e0e0e4", mute: "#8a8f98" };
+/** Where `el` draws by default: the svg, or the group of the diagram being drawn during a cross-fade. */
+let target = lab;
+const el = (tag, a, parent = target) => { const e = document.createElementNS(NS, tag); for (const k in a) e.setAttribute(k, a[k]); parent.appendChild(e); return e; };
+const r2 = (n) => Math.round(n * 100) / 100;
+const poly = (pts) => "M" + pts.map((p) => r2(p[0]) + " " + r2(p[1])).join("L") + "Z";
+const line = (pts) => "M" + pts.map((p) => r2(p[0]) + " " + r2(p[1])).join("L");
+const ease = (t) => (t < 0.5 ? 2 * t * t : 1 - (-2 * t + 2) ** 2 / 2);
+
+/**
+ * One layer of a bent strip, as a polygon. The strip's neutral line passes
+ * through (cx, cy) and bends ends-up about a centre R above it. The layer
+ * spans offsets d0…d1 above the neutral line. A sliding layer keeps its own
+ * length at its own radius, so the inner ones run further round; a glued one
+ * is locked to the neutral line's angle, so every end lines up.
+ */
+function layer(cx, cy, half, d0, d1, kappa, sliding) {
+  const R = kappa > 1e-6 ? 1 / kappa : 1e7, dm = (d0 + d1) / 2;
+  const th = sliding ? half / (R - dm) : half / R, n = 48, pt = (d, phi) => [cx + (R - d) * Math.sin(phi), cy - R + (R - d) * Math.cos(phi)];
+  const top = [], bot = [];
+  for (let i = 0; i <= n; i++) { const phi = -th + (2 * th * i) / n; top.push(pt(d1, phi)); bot.push(pt(d0, phi)); }
+  return { pts: top.concat(bot.reverse()), end: pt(dm, th), mid: (d) => pt(d, 0) };
+}
+function strip(cx, cy, half, d0, d1, kappa, sliding, stroke, sw = 1.2) {
+  const L = layer(cx, cy, half, d0, d1, kappa, sliding);
+  el("path", { d: poly(L.pts), fill: C.plate, stroke, "stroke-width": sw });
+  return L;
+}
+function label(x, y, text, color = C.mute, anchor = "start", o = 1) { const t = el("text", { x, y, "text-anchor": anchor, opacity: o, fill: color }); t.textContent = text; return t; }
+
+/** The inner screen's stack, top to bottom: films, high-strength glass, the folding panel, glass, films. */
+const STACK = [["f", 2.4], ["f", 2.4], ["f", 2.4], ["glass", 5], ["f", 2.4], ["panel", 7], ["f", 2.4], ["glass", 5], ["f", 2.4], ["f", 2.4], ["f", 2.4], ["f", 2.4]];
+const NAMES = { glass: "high-strength glass", panel: "folding panel" };
+
+function drawStack(s) {
+  const V = document.documentElement.classList.contains("v");
+  // narrower in 9:16, so the labels at the right ends still fit the frame
+  const cx = V ? 270 : 310, cy = 270, half = V ? 135 : 175, gap = 2 + s.spread * 9, kappa = s.k / 190;
+  const total = STACK.reduce((a, [, t]) => a + t, 0) + gap * (STACK.length - 1);
+  let d = -total / 2;
+  const named = [];
+  // bottom first; the list is top-down
+  const items = STACK.slice().reverse();
+  const plateT = 9;
+  if (s.plate > 0) {
+    const g = el("g", { opacity: s.plate });
+    const P = layer(cx, cy, half, d - gap - 4 - plateT, d - gap - 4, kappa, true);
+    el("path", { d: poly(P.pts), fill: C.plate, stroke: C.hi, "stroke-width": 1.4 }, g);
+    const t = el("text", { x: P.end[0] + 18, y: P.end[1] + 5, fill: C.hi }, g); t.textContent = "titanium plate";
+  }
+  for (const [kind, t] of items) {
+    const hi = s.hiGlass && kind !== "f";
+    const L = strip(cx, cy, half, d, d + t, kappa, true, hi ? C.hi : kind === "f" ? C.mid : C.edge, hi ? 1.5 : 1.2);
+    if (kind !== "f") named.push([kind, L.end]);
+    d += t + gap;
+  }
+  if (s.labels > 0) for (const [kind, e] of named) {
+    el("path", { d: line([[e[0] + 6, e[1]], [e[0] + 22, e[1]]]), stroke: C.mid, "stroke-width": 1, opacity: s.labels });
+    label(e[0] + 28, e[1] + 5, NAMES[kind], s.hiGlass && kind === "glass" ? C.hi : C.mute, "start", s.labels);
+  }
+  if (s.count > 0) {
+    // a bracket down the left ends, counting the layers
+    const top = layer(cx, cy, half, total / 2 - 1, total / 2, kappa, true), bot = layer(cx, cy, half, -total / 2, -total / 2 + 1, kappa, true);
+    const a = [cx - (top.end[0] - cx) - 16, top.end[1]], b = [cx - (bot.end[0] - cx) - 16, bot.end[1]];
+    el("path", { d: line([[a[0] + 6, a[1]], a, b, [b[0] + 6, b[1]]]), stroke: C.hi, "stroke-width": 1.2, fill: "none", opacity: s.count });
+    const t = label(a[0] - 12, (a[1] + b[1]) / 2 + 6, "10+ layers", C.hi, "end", s.count); t.setAttribute("font-weight", "600");
+  }
+  if (s.slideTag > 0) label(cx, cy + 120, "each layer keeps its length, so the ends stagger", C.mute, "middle", s.slideTag);
+}
+
+function drawThick(s) {
+  const kappa = s.k / 150;
+  const rows = [["thick glass", 200, 22, Math.min(1.25, s.k * 1.25)], ["thin glass", 380, 4, s.k * 0.22]];
+  for (const [name, cy, t, stress] of rows) {
+    const over = stress > 1;
+    const L = strip(235, cy, 165, -t / 2, t / 2, kappa, false, over ? C.hi : C.edge, over ? 1.6 : 1.2);
+    const nm = label(455, cy - 44, name, C.hi, "start"); nm.setAttribute("font-weight", "600");
+    if (over) {
+      // a crack on the stretched (outer) face
+      const [mx, my] = L.mid(-t / 2);
+      el("path", { d: line([[mx - 6, my + 1], [mx - 2, my - 6], [mx + 2, my - 1], [mx + 5, my - 9]]), stroke: C.hi, "stroke-width": 1.5, fill: "none" });
+    }
+    // the meter: how hard the bend pulls on the outer face
+    const x = 455, w = 130, y = cy - 4;
+    label(x, y - 14, "surface stress", C.mute);
+    el("rect", { x, y, width: w, height: 8, rx: 4, fill: "none", stroke: C.lo, "stroke-width": 1 });
+    el("rect", { x, y, width: Math.max(0.01, Math.min(w, (w * stress) / 1.25)), height: 8, rx: 4, fill: over ? C.hi : C.edge, stroke: "none" });
+    el("path", { d: line([[x + w / 1.25, y - 5], [x + w / 1.25, y + 13]]), stroke: C.hi, "stroke-width": 1, "stroke-dasharray": "2 3" });
+  }
+  label(455 + 130 / 1.25, 470, "breaking point", C.mute, "middle", 0);
+}
+
+function drawPaper(s) {
+  const V = document.documentElement.classList.contains("v"), PX = V ? 140 : 160, GX = V ? 410 : 470;
+  const kappa = s.k / 110;
+  const pages = 10, t = 2.6, gap = 0.9, total = pages * t + (pages - 1) * gap;
+  // the paperback: pages slide
+  let d = -total / 2;
+  for (let i = 0; i < pages; i++) { strip(PX, 290, 115, d, d + t, kappa, true, C.edge, 1.1); d += t + gap; }
+  // the glued block: locked to one neutral line, so it barely gives
+  const kg = kappa * 0.12;
+  const B = layer(GX, 290, 115, -total / 2, total / 2, kg, false);
+  el("path", { d: poly(B.pts), fill: C.plate, stroke: C.hi, "stroke-width": 1.5 });
+  d = -total / 2 + t + gap / 2;
+  for (let i = 1; i < pages; i++) { const L = layer(GX, 290, 115, d, d + 0.01, kg, false); el("path", { d: line(L.pts.slice(0, 49)), stroke: C.lo, "stroke-width": 1, fill: "none" }); d += t + gap; }
+  label(PX, 400, "paperback", C.hi, "middle"); label(PX, 424, "pages slide past each other", C.mute, "middle");
+  label(GX, 400, "glued stack", C.hi, "middle"); label(GX, 424, "pages locked together", C.mute, "middle");
+}
+
+function drawFiber(s) {
+  // a block whose corner the fiber wraps, then the fiber itself as a tube, drawn in, with light running down it
+  el("path", { d: "M70 228 L262 228 Q290 228 290 256 L290 470 L70 470 Z", fill: C.plate, stroke: C.edge, "stroke-width": 1.2 });
+  for (let x = 90; x < 290; x += 22) el("path", { d: line([[x, 470], [x - 16, 486]]), stroke: C.lo, "stroke-width": 1 });
+  const path = el("path", { d: "M40 214 L262 214 A42 42 0 0 1 304 256 L304 480", fill: "none", stroke: C.hi, "stroke-width": 7 });
+  const inner = el("path", { d: "M40 214 L262 214 A42 42 0 0 1 304 256 L304 480", fill: "none", stroke: C.plate, "stroke-width": 4.6 });
+  const len = path.getTotalLength();
+  for (const p of [path, inner]) { p.setAttribute("stroke-dasharray", `${len * s.draw} ${len}`); }
+  if (s.draw >= 1) for (let i = 0; i < 4; i++) {
+    const at = ((s.time * 160 + i * (len / 4)) % len), q = path.getPointAtLength(at);
+    el("circle", { cx: q.x, cy: q.y, r: 2.6, fill: C.hi });
+  }
+  label(40, 190, "a glass fiber", C.hi, "start", Math.min(1, s.draw * 2));
+  label(330, 330, "thin enough to bend", C.mute, "start", Math.max(0, s.draw * 2 - 1));
+  label(330, 354, "around a corner", C.mute, "start", Math.max(0, s.draw * 2 - 1));
+}
+
+window.render = (s) => {
+  lab.replaceChildren();
+  lab.style.opacity = s.labO;
+  // one or two diagrams: during a cross-fade the outgoing one drifts up as it fades, the incoming one settles in from below
+  for (const L of s.layers) {
+    target = el("g", { opacity: L.o, transform: `translate(0 ${L.dy})` }, lab);
+    const d = { ...s, mode: L.mode, k: L.k };
+    if (d.mode === "stack") drawStack(d); else if (d.mode === "thick") drawThick(d); else if (d.mode === "paper") drawPaper(d); else if (d.mode === "fiber") drawFiber(d);
+  }
+  target = lab;
+  document.getElementById("f").style.opacity = s.duoO;
+  cur.style.opacity = s.curO;
+  window.fig.update({ glare: s.glare });
+  const cap = document.getElementById("cap");
+  cap.style.opacity = s.capO;
+  if (s.head) { kicker.textContent = s.head[0]; title.innerHTML = s.head[1]; body.innerHTML = s.head[2] ?? ""; }
+  document.querySelectorAll("#body .it").forEach((e, i) => { e.style.opacity = s.items?.[i] ?? 0; });
+  const sub = document.getElementById("sub");
+  sub.style.opacity = s.subO; sub.firstChild.textContent = s.sub ?? "";
+};
+window.ready = true;
+</script>

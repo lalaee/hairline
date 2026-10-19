@@ -16,6 +16,7 @@ packages/hairline   the package: src/core (maths, stage, styles), src/figures (s
                     src/mount.ts (the public lifecycle), src/index.ts and src/react.tsx (the two entries)
 apps/site           hairline.lucasmarkes.com (Next.js)
 skills/hairline-create   the skill that draws a new figure: its kernel is generated from packages/hairline/src/core
+skills/hairline-explainer   the skill that turns a figure into a narrated explainer video (16:9 and 9:16); rebuilds assets/iphone-duo-*.mp4
 registry            the shadcn item: its source, and the scripts that build and validate it
 fixtures            two apps that install the packed tarball: Next.js and Vite
 scripts             the release gate and what it calls
