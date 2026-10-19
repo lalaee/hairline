@@ -10,8 +10,9 @@ coverage/
 test-results/
 playwright-report/
 
-# Agent scratch
-.claude/
+# Agent scratch, except the skills Claude Code loads from here (links into skills/)
+.claude/*
+!.claude/skills/
 
 # Copied in from the root by the package's prepack
 packages/hairline/README.md
